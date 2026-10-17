@@ -99,7 +99,7 @@ do
   vim.g.maplocalleader = ' '
 
   -- Set to true if you have a Nerd Font installed and selected in the terminal
-  vim.g.have_nerd_font = false
+  vim.g.have_nerd_font = true
 
   -- [[ Setting options ]]
   --  See `:help vim.o`
@@ -251,6 +251,19 @@ do
     group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
     callback = function() vim.hl.on_yank() end,
   })
+
+  -- Godot files use real tabs (Python's ftplugin already uses 4 spaces, per PEP 8)
+  vim.api.nvim_create_autocmd('FileType', {
+    desc = 'Use tabs for Godot files',
+    group = vim.api.nvim_create_augroup('godot-tabs', { clear = true }),
+    pattern = { 'gdscript', 'gdshader', 'godot_resource' },
+    callback = function()
+      vim.bo.expandtab = false
+      vim.bo.tabstop = 4
+      vim.bo.shiftwidth = 0 -- 0 = follow tabstop
+      vim.bo.softtabstop = 0
+    end,
+  })
 end
 
 -- ============================================================
@@ -344,7 +357,10 @@ do
   -- We first install it from https://github.com/NMAC427/guess-indent.nvim
   -- and then call its `setup()` function to start it with default settings.
   vim.pack.add { gh 'NMAC427/guess-indent.nvim' }
-  require('guess-indent').setup {}
+  require('guess-indent').setup {
+    -- Godot requires real tabs, so don't let guess-indent pick spaces from a file's existing content
+    filetype_exclude = { 'netrw', 'tutor', 'gdscript', 'gdshader', 'godot_resource' },
+  }
 
   -- Here is a more advanced configuration example that passes options to `gitsigns.nvim`
   --
@@ -737,6 +753,11 @@ do
     -- gopls = {},
     -- pyright = {},
     -- tsc = {},
+
+    -- Python: basedpyright for types/completion/go-to-definition, ruff for linting + formatting.
+    -- (basedpyright installs via pip, so it doesn't need Node like pyright does.)
+    basedpyright = {},
+    ruff = {},
     --
     -- Some languages (like rust) have entire language plugins that can be useful:
     --    https://github.com/mrcjkb/rustaceanvim
@@ -812,6 +833,10 @@ do
     vim.lsp.config(name, server)
     vim.lsp.enable(name)
   end
+
+  -- GDScript: the language server is built into the Godot editor, so Mason doesn't install it.
+  --  It connects to 127.0.0.1:6005, which only works while the Godot editor has your project open.
+  vim.lsp.enable 'gdscript'
 end
 
 -- ============================================================
@@ -841,6 +866,7 @@ do
     -- You can also specify external formatters in here.
     formatters_by_ft = {
       -- rust = { 'rustfmt' },
+      python = { 'ruff_organize_imports', 'ruff_format' },
       -- Conform can also run multiple formatters sequentially
       -- python = { "isort", "black" },
       --
@@ -948,7 +974,7 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'python', 'gdscript', 'godot_resource', 'gdshader' }
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
@@ -1018,12 +1044,12 @@ do
   -- require 'kickstart.plugins.indent_line'
   -- require 'kickstart.plugins.lint'
   -- require 'kickstart.plugins.autopairs'
-  -- require 'kickstart.plugins.neo-tree'
+  require 'kickstart.plugins.neo-tree'
 
   -- NOTE: You can add your own plugins, configuration, etc. in `lua/custom/plugins/*.lua`.
   --
   -- For independent modules, uncomment the convenience loader:
-  -- require 'custom.plugins'
+  require 'custom.plugins'
   --
   -- `custom.plugins` automatically loads files from that directory, but their
   -- order is unspecified. If plugins depend on each other, keep them in the same
